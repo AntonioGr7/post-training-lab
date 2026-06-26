@@ -1,0 +1,81 @@
+# =============================================================================================
+# Headline GRPO / RLVR run: teach Qwen3-4B to reason on GSM8K with verifiable rewards.
+# Target hardware: ONE A100 / H100 (80 GB). Policy (trained) + vLLM generation colocated on the GPU.
+# Reward = programmatic verifier (answer correct?) — no reward model.
+#
+#   uv sync --extra vllm                                  # vLLM is required for this config
+#   uv run accelerate launch train.py --config configs/default.yaml
+#
+# Parsed into LabArguments + GRPOConfig + ModelConfig by TrlParser.
+# =============================================================================================
+
+# ---- ModelConfig ----------------------------------------------------------------------------
+# An instruct model already follows the "answer in \boxed{}" instruction, so RL can focus on
+# *reasoning quality*. For the R1-ZERO experience (RL straight from a base model, formatting
+# learned from scratch via the format reward), swap in `Qwen/Qwen3-4B-Base` — slower to take off.
+model_name_or_path: Qwen/Qwen3-4B
+dtype: bfloat16
+attn_implementation: flash_attention_2        # No flash-attn? set `sdpa`. (`uv sync --extra flash`)
+
+# ---- LoRA path (uncomment to cut memory; ref = adapter disabled, so no second model) --------
+# use_peft: true
+# lora_r: 32
+# lora_alpha: 64
+# lora_target_modules: all-linear
+
+# ---- LabArguments (dataset) -----------------------------------------------------------------
+dataset_name: openai/gsm8k                     # canonical grade-school math; answers are verifiable
+dataset_config: main
+dataset_train_split: train
+dataset_test_split: test
+max_train_samples: 5000                        # subsample prompts for a single-GPU time budget
+
+# ---- GRPOConfig (training) ------------------------------------------------------------------
+output_dir: outputs/qwen3-4b-gsm8k-grpo
+
+# --- The group: GRPO's core idea ---
+num_generations: 8                             # G — completions sampled per prompt. The advantage
+                                              # baseline is this group's mean reward. Bigger G =
+                                              # lower-variance baseline but more generation cost.
+temperature: 1.0                               # need diversity WITHIN a group, or rewards collapse
+                                              # to a constant and advantages vanish (see README §6)
+max_completion_length: 1024                    # reasoning needs room; dominates generation cost
+
+# --- vLLM: generation is the bottleneck of online RL ---
+use_vllm: true
+vllm_mode: colocate                            # vLLM shares this GPU with training (single-GPU path)
+vllm_gpu_memory_utilization: 0.3               # leave headroom for the training model + activations
+
+# --- The loss / trust region ---
+beta: 0.0                                      # KL-to-reference coefficient. DEFAULT 0.0 = NO KL term
+                                              # and no reference model — now standard practice for
+                                              # GRPO (R1, DAPO). Set >0 (e.g. 0.04) to re-enable the
+                                              # leash + a frozen reference. See README §6.
+loss_type: dapo                                # token-level normalization (DAPO) — reduces the
+                                              # response-length bias of the original GRPO loss.
+                                              # Alternatives: dr_grpo, sapo, grpo. See README §8.
+epsilon: 0.2                                   # PPO-style ratio clip — the trust region GRPO inherits
+                                              # (and what the DPPO frontier note in §8 critiques).
+num_iterations: 1                              # mu: optimization passes per generation batch
+scale_rewards: true                            # normalize advantages by group std (set false per
+                                              # Dr.GRPO to avoid difficulty bias; "batch" also valid)
+
+# --- Optimization ---
+learning_rate: 1.0e-6                          # online RL uses a tiny LR (like PPO, unlike SFT)
+per_device_train_batch_size: 16                # counts COMPLETIONS; must be divisible by num_generations
+gradient_accumulation_steps: 4
+num_train_epochs: 1
+max_grad_norm: 0.2
+warmup_ratio: 0.03
+bf16: true
+gradient_checkpointing: true
+
+# --- Logging ---
+logging_steps: 1
+log_completions: true                          # log sample (prompt, completion, reward) tables — WATCH
+num_completions_to_print: 4
+save_strategy: epoch
+save_total_limit: 1
+report_to: wandb                               # course default. `wandb login` + export WANDB_PROJECT
+run_name: qwen3-4b-gsm8k-grpo
+seed: 42

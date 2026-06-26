@@ -1,0 +1,46 @@
+# =============================================================================================
+# Smoke test: prove the GRPO loop spins (sample a group → verify rewards → group-relative update)
+# in a few minutes. Tiny model, no vLLM (plain HF generate), 5 steps. Run first on your GPU.
+#
+#   uv run python train.py --config configs/smoke.yaml
+# =============================================================================================
+
+# ---- ModelConfig ----------------------------------------------------------------------------
+model_name_or_path: Qwen/Qwen3-0.6B
+dtype: bfloat16
+attn_implementation: sdpa
+
+# ---- LabArguments (dataset) -----------------------------------------------------------------
+dataset_name: openai/gsm8k
+dataset_config: main
+dataset_train_split: train
+dataset_test_split: test
+max_train_samples: 64
+
+# ---- GRPOConfig (training) ------------------------------------------------------------------
+output_dir: outputs/smoke-grpo
+
+num_generations: 4
+temperature: 1.0
+max_completion_length: 128
+
+use_vllm: false                                # plain generate() — no vLLM dependency for the smoke
+
+beta: 0.0
+loss_type: dapo
+epsilon: 0.2
+num_iterations: 1
+
+learning_rate: 1.0e-6
+per_device_train_batch_size: 4                 # divisible by num_generations (4)
+gradient_accumulation_steps: 1
+max_steps: 5
+bf16: true
+gradient_checkpointing: false
+
+logging_steps: 1
+log_completions: true
+num_completions_to_print: 2
+save_strategy: "no"
+report_to: none
+seed: 42
