@@ -1,0 +1,39 @@
+# =============================================================================================
+# Smoke test: prove the RM pipeline runs in ~1-2 min before spending GPU-hours.
+# Tiny model, few pairs, 5 steps. No flash-attn required. Run this first on your A100/H100.
+#
+#   uv run python train.py --config configs/smoke.yaml
+# =============================================================================================
+
+# ---- ModelConfig ----------------------------------------------------------------------------
+model_name_or_path: Qwen/Qwen3-0.6B
+dtype: bfloat16
+attn_implementation: sdpa
+
+# ---- LabArguments (dataset) -----------------------------------------------------------------
+dataset_name: trl-lib/ultrafeedback_binarized
+dataset_train_split: train
+dataset_test_split: test
+max_train_samples: 256
+max_eval_samples: 128
+
+# ---- RewardConfig (training) ----------------------------------------------------------------
+output_dir: outputs/smoke-rm
+max_length: 1024
+center_rewards_coefficient: 0.01
+
+max_steps: 5
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 1
+learning_rate: 2.0e-5
+lr_scheduler_type: constant
+warmup_ratio: 0.0
+
+bf16: true
+gradient_checkpointing: false
+
+logging_steps: 1
+eval_strategy: "no"
+save_strategy: "no"
+report_to: none
+seed: 42

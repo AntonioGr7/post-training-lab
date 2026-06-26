@@ -1,0 +1,27 @@
+[project]
+name = "post-training-lab-reward-modeling"
+version = "0.1.0"
+description = "Reward Modeling — Bradley-Terry outcome reward models (+ process reward models). Hands-on lesson + runnable example."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Practitioner stack, June 2026. Same pins as the rest of the lab.
+    "transformers>=5.0,<6",
+    "trl>=1.7,<2",
+    "datasets>=3.2",
+    "accelerate>=1.4",
+    "peft>=0.14",
+    "torch>=2.5",
+    # Experiment tracking — wandb is the course-wide default tracker.
+    "wandb>=0.18",
+]
+
+[project.optional-dependencies]
+# Fused FlashAttention-2 kernels — optional speedup for the headline run (RM does not pack,
+# so this is throughput only, not correctness). Install with: uv sync --extra flash
+flash = ["flash-attn>=2.7"]
+# 4-bit quantization for the LoRA/QLoRA reward-head path.
+quant = ["bitsandbytes>=0.45"]
+
+[tool.uv]
+no-build-isolation-package = ["flash-attn"]

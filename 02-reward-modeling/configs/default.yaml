@@ -1,0 +1,54 @@
+# =============================================================================================
+# Headline reward-modeling run: a Bradley-Terry outcome RM on UltraFeedback.
+# Target hardware: ONE A100 / H100 (80 GB). Full-parameter fine-tune.
+#
+#   uv run python train.py --config configs/default.yaml
+#   uv run accelerate launch train.py --config configs/default.yaml      # multi-GPU
+#
+# Parsed into LabArguments + RewardConfig + ModelConfig by TrlParser.
+# =============================================================================================
+
+# ---- ModelConfig ----------------------------------------------------------------------------
+# In a real pipeline you initialize the RM from YOUR SFT model (the output of folder 01) so the
+# RM and policy share a backbone. Here we use the released instruct model so the folder stands
+# alone — swap in `../01-sft/outputs/qwen3-4b-tulu3-sft` to do it "properly".
+model_name_or_path: Qwen/Qwen3-4B
+dtype: bfloat16
+attn_implementation: flash_attention_2        # optional speedup (RM doesn't pack). No flash-attn?
+                                              # set `sdpa`. Install flash with `uv sync --extra flash`.
+
+# ---- LabArguments (dataset) -----------------------------------------------------------------
+dataset_name: trl-lib/ultrafeedback_binarized   # conversational preference pairs (chosen/rejected)
+dataset_train_split: train
+dataset_test_split: test
+max_train_samples: 30000                       # subsample for a single-GPU time budget
+max_eval_samples: 2000
+
+# ---- RewardConfig (training) ----------------------------------------------------------------
+output_dir: outputs/qwen3-4b-ultrafeedback-rm
+max_length: 2048                               # prompt + response; truncates longer pairs
+
+# The Bradley-Terry objective is shift-invariant (adding a constant to all rewards changes
+# nothing). This small auxiliary loss pulls rewards toward zero-mean — more stable scores and a
+# first line of defense against reward-scale drift. Recommended value: 1e-2. (See README.)
+center_rewards_coefficient: 0.01
+
+num_train_epochs: 1
+per_device_train_batch_size: 8                 # = 8 preference PAIRS (16 sequences) per device
+gradient_accumulation_steps: 4                 # effective batch = 32 pairs / step
+learning_rate: 2.0e-5                           # full-FT RM; for LoRA raise to ~1e-3
+lr_scheduler_type: cosine
+warmup_ratio: 0.03
+max_grad_norm: 1.0
+
+bf16: true
+gradient_checkpointing: true
+
+logging_steps: 10
+eval_strategy: steps
+eval_steps: 200
+save_strategy: epoch
+save_total_limit: 1
+report_to: wandb                               # course default. `wandb login` + export WANDB_PROJECT
+run_name: qwen3-4b-ultrafeedback-rm
+seed: 42

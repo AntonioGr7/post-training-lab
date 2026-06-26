@@ -1,0 +1,41 @@
+# =============================================================================================
+# Smoke test: verify the whole pipeline runs in ~1-2 minutes before you spend GPU-hours.
+# Tiny model, a handful of examples, 5 optimization steps. No FlashAttention required.
+# Runs on any ~16 GB+ GPU (and is the recommended first thing to run on your A100/H100).
+#
+#   uv run python train.py --config configs/smoke.yaml
+# =============================================================================================
+
+# ---- ModelConfig ----------------------------------------------------------------------------
+model_name_or_path: Qwen/Qwen3-0.6B-Base
+dtype: bfloat16
+attn_implementation: sdpa                     # no flash-attn dependency for the smoke test
+
+# ---- LabArguments (dataset) -----------------------------------------------------------------
+dataset_name: allenai/tulu-3-sft-mixture
+dataset_train_split: train
+max_train_samples: 256
+eval_ratio: 0.1
+
+# ---- SFTConfig (training) -------------------------------------------------------------------
+output_dir: outputs/smoke
+chat_template_path: HuggingFaceTB/SmolLM3-3B
+assistant_only_loss: true
+packing: false                                # keep it simple/correct without flash-attn
+max_length: 1024
+
+max_steps: 5                                  # overrides epochs — just prove it trains
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 1
+learning_rate: 2.0e-5
+lr_scheduler_type: constant
+warmup_ratio: 0.0
+
+bf16: true
+gradient_checkpointing: false                 # not worth it at this size
+
+logging_steps: 1
+eval_strategy: "no"
+save_strategy: "no"
+report_to: none
+seed: 42

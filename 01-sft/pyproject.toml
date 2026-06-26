@@ -1,0 +1,29 @@
+[project]
+name = "post-training-lab-sft"
+version = "0.1.0"
+description = "Supervised Fine-Tuning (SFT) — the foundation of post-training. Hands-on lesson + runnable example."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Practitioner stack, June 2026. Pinned to the v5 / v1 era so the example is reproducible.
+    "transformers>=5.0,<6",
+    "trl>=1.7,<2",
+    "datasets>=3.2",
+    "accelerate>=1.4",
+    "peft>=0.14",
+    "torch>=2.5",
+    # Experiment tracking — wandb is the course-wide default tracker.
+    "wandb>=0.18",
+]
+
+[project.optional-dependencies]
+# Fused FlashAttention-2 kernels. Needed to get correct *and* fast example packing on a
+# single A100/H100 (see README §"Packing"). The wheel build can be slow; install with:
+#   uv sync --extra flash
+flash = ["flash-attn>=2.7"]
+# 4-bit quantization for the QLoRA path (see README §"Full FT vs LoRA vs QLoRA").
+quant = ["bitsandbytes>=0.45"]
+
+[tool.uv]
+# flash-attn must be built against an already-installed torch.
+no-build-isolation-package = ["flash-attn"]

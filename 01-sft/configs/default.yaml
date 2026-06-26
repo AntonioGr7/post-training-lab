@@ -1,0 +1,60 @@
+# =============================================================================================
+# Headline SFT run: instruction-tune Qwen3-4B-Base on the Tulu-3 SFT mixture.
+# Target hardware: ONE A100 / H100 (80 GB). Full-parameter fine-tune (no LoRA).
+#
+# Launch:
+#   uv run python train.py --config configs/default.yaml                 # single GPU
+#   uv run accelerate launch train.py --config configs/default.yaml      # multi-GPU
+#
+# Fields below are parsed into LabArguments + SFTConfig + ModelConfig by TrlParser.
+# =============================================================================================
+
+# ---- ModelConfig ----------------------------------------------------------------------------
+model_name_or_path: Qwen/Qwen3-4B-Base       # the *base* model — we teach it to follow instructions
+dtype: bfloat16
+attn_implementation: flash_attention_2        # required for correct + fast packing (see README).
+                                              # No flash-attn? set this to `sdpa` AND `packing: false`.
+
+# ---- LabArguments (dataset) -----------------------------------------------------------------
+dataset_name: allenai/tulu-3-sft-mixture
+dataset_train_split: train
+max_train_samples: 50000                      # ~full epoch of the mixture is ~939k rows; we
+                                              # subsample to fit a single-GPU time budget. Raise
+                                              # for a stronger model, lower for a faster run.
+eval_ratio: 0.01                              # hold out 1% for eval loss / token-accuracy
+
+# ---- SFTConfig (training) -------------------------------------------------------------------
+output_dir: outputs/qwen3-4b-tulu3-sft
+
+# Turning a base model into an instruct model: borrow a training chat template that includes
+# the {% generation %} tags needed for assistant-only loss. TRL clones it onto the tokenizer
+# and aligns the special tokens / EOS automatically.
+chat_template_path: HuggingFaceTB/SmolLM3-3B
+assistant_only_loss: true                     # compute loss ONLY on assistant turns
+packing: true                                 # pack multiple samples per sequence for throughput
+max_length: 4096
+
+# Optimization
+num_train_epochs: 1
+per_device_train_batch_size: 8
+gradient_accumulation_steps: 4                # effective batch = 8 * 4 = 32 sequences / step
+learning_rate: 2.0e-5                          # classic full-FT SFT LR
+lr_scheduler_type: cosine
+warmup_ratio: 0.03
+max_grad_norm: 1.0
+weight_decay: 0.0
+
+# Memory / precision (these are also SFTConfig defaults, shown for transparency)
+bf16: true
+gradient_checkpointing: true
+
+# Logging / checkpointing
+logging_steps: 10
+eval_strategy: steps
+eval_steps: 200
+save_strategy: epoch
+save_total_limit: 1
+report_to: wandb                               # course default. Run `wandb login` first;
+                                               # set project via `export WANDB_PROJECT=post-training-lab`.
+run_name: qwen3-4b-tulu3-sft                   # shows up as the run name in the wandb UI
+seed: 42
