@@ -1,0 +1,21 @@
+[project]
+name = "post-training-lab-ppo"
+version = "0.1.0"
+description = "PPO for RLHF — the classic online RL method. Explained in depth + an honest 'superseded' verdict + a light runnable demo."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "transformers>=5.0,<6",
+    "trl>=1.7,<2",
+    "datasets>=3.2",
+    "accelerate>=1.4",
+    "peft>=0.14",
+    "torch>=2.5",
+    "wandb>=0.18",
+]
+
+[project.optional-dependencies]
+quant = ["bitsandbytes>=0.45"]
+
+# NOTE: no flash-attn extra here. The reference demo uses pythia (GPTNeoX) on a small scale where
+# sdpa is fine; PPO's bottleneck is the rollout/4-model memory, not attention kernels.

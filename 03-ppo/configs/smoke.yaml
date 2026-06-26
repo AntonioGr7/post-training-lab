@@ -1,0 +1,45 @@
+# =============================================================================================
+# Smoke test: prove the PPO loop spins (rollout → score → optimize) in a few minutes.
+# Same reference models, a few hundred episodes, short responses. Run first on your A100/H100.
+#
+#   uv run python train.py --config configs/smoke.yaml
+# =============================================================================================
+
+# ---- ModelConfig ----------------------------------------------------------------------------
+model_name_or_path: EleutherAI/pythia-1b-deduped
+dtype: bfloat16
+attn_implementation: sdpa
+
+# ---- LabArguments (dataset) -----------------------------------------------------------------
+dataset_name: trl-lib/tldr
+dataset_train_split: train
+dataset_test_split: validation
+max_prompt_length: 256
+max_train_samples: 1024
+
+# ---- PPOConfig (training) -------------------------------------------------------------------
+sft_model_path: cleanrl/EleutherAI_pythia-1b-deduped__sft__tldr
+reward_model_path: cleanrl/EleutherAI_pythia-1b-deduped__reward__tldr
+
+output_dir: outputs/smoke-ppo
+total_episodes: 256
+response_length: 32
+local_rollout_forward_batch_size: 8
+
+num_ppo_epochs: 1
+num_mini_batches: 1
+kl_coef: 0.05
+cliprange: 0.2
+missing_eos_penalty: 1.0
+stop_token: eos
+
+learning_rate: 3.0e-6
+per_device_train_batch_size: 8
+gradient_accumulation_steps: 1
+bf16: true
+
+logging_steps: 1
+num_sample_generations: 1
+save_strategy: "no"
+report_to: none
+seed: 42

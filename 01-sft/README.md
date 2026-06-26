@@ -382,9 +382,13 @@ uv run python train.py --config configs/smoke.yaml
 ```bash
 uv run python train.py --config configs/default.yaml
 ```
-Subsamples Tulu-3 to 50k examples, 1 epoch, full fine-tune of Qwen3-4B-Base. Expect a few hours on
-one H100 (less if you lower `max_train_samples`). Outputs land in `outputs/qwen3-4b-tulu3-sft/`.
-Watch live metrics (loss, `mean_token_accuracy`, grad norm, LR) in the wandb run it prints a link to.
+Subsamples Tulu-3 to 50k examples, 1 epoch, full fine-tune of Qwen3-4B-Base. Outputs land in
+`outputs/qwen3-4b-tulu3-sft/`. Watch live metrics (loss, `mean_token_accuracy`, grad norm, LR) in
+the wandb run it prints a link to.
+
+> ⏱ **Expected runtime (rough):** ~**3–5 h** on a single A100-80GB (~1.5–2.5 h on H100), excluding
+> first-run downloads. Scales ~linearly with `max_train_samples` — halve it for a quick pass. These
+> are FLOP-based estimates, not measured; replace with your own once you've run it.
 
 ### 3) Talk to your model
 ```bash

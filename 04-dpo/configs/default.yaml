@@ -1,0 +1,71 @@
+# =============================================================================================
+# Headline DPO run: align Qwen3-4B on UltraFeedback preference pairs (full fine-tune).
+# Target hardware: ONE A100 / H100 (80 GB). Policy + frozen reference = two 4B models resident.
+#
+#   uv run python train.py --config configs/default.yaml
+#   uv run accelerate launch train.py --config configs/default.yaml      # multi-GPU
+#
+# Parsed into LabArguments + DPOConfig + ModelConfig by TrlParser.
+# =============================================================================================
+
+# ---- ModelConfig ----------------------------------------------------------------------------
+# DPO aligns an ALREADY-INSTRUCT model on preferences. Properly, init from YOUR SFT model (folder
+# 01's output) so the reference == your SFT policy — swap in `../01-sft/outputs/qwen3-4b-tulu3-sft`.
+# We use the released instruct model so the folder stands alone.
+model_name_or_path: Qwen/Qwen3-4B
+dtype: bfloat16
+attn_implementation: flash_attention_2        # DPO scores chosen+rejected for policy AND reference,
+                                              # so attention throughput matters. No flash-attn? set
+                                              # `sdpa`. Install with `uv sync --extra flash`.
+
+# ---- LoRA path (uncomment to halve memory; no second model — ref = adapter disabled) --------
+# Then RAISE the LR to ~1e-5 (adapters need a higher LR than full-FT — see README).
+# use_peft: true
+# lora_r: 16
+# lora_alpha: 32
+# lora_dropout: 0.05
+# lora_target_modules: all-linear
+
+# ---- LabArguments (dataset) -----------------------------------------------------------------
+dataset_name: trl-lib/ultrafeedback_binarized   # SAME prefs as folder 02 — contrast RM vs DPO
+dataset_train_split: train
+dataset_test_split: test
+max_train_samples: 30000                       # subsample for a single-GPU time budget
+max_eval_samples: 1000
+
+# ---- DPOConfig (training) -------------------------------------------------------------------
+output_dir: outputs/qwen3-4b-ultrafeedback-dpo
+
+# beta: the implicit-reward temperature == KL strength. Low beta (0.01) = let the policy drift far
+# from the reference (stronger preference fit, more reward-hack/over-opt risk); high beta (0.5) =
+# stay close to the reference (conservative). 0.1 is the field default and a sane start. See README.
+beta: 0.1
+
+# loss_type switches the variant WITHOUT touching code:
+#   sigmoid (default, vanilla DPO) | ipo (fixes overfitting to deterministic prefs)
+#   sigmoid_norm (SimPO-style length normalization) | hinge | robust | ...  (see README table)
+loss_type: sigmoid
+
+max_length: 1536                               # prompt + completion; truncates longer pairs
+max_prompt_length: 768                         # cap on the prompt portion
+
+num_train_epochs: 1
+per_device_train_batch_size: 4                 # = 4 preference PAIRS (8 sequences) per device
+gradient_accumulation_steps: 8                 # effective batch = 32 pairs / step
+learning_rate: 5.0e-7                           # DPO LR is MUCH smaller than SFT (~1e-5+). Full-FT:
+                                              # ~5e-7. LoRA: raise to ~1e-5. Too high → collapse.
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+max_grad_norm: 1.0
+
+bf16: true
+gradient_checkpointing: true                   # needed to fit policy + reference on one 80 GB GPU
+
+logging_steps: 10
+eval_strategy: steps
+eval_steps: 200
+save_strategy: epoch
+save_total_limit: 1
+report_to: wandb                               # course default. `wandb login` + export WANDB_PROJECT
+run_name: qwen3-4b-ultrafeedback-dpo
+seed: 42

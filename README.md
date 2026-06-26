@@ -27,8 +27,8 @@ uv run python train.py --config configs/default.yaml     # the real run
 |---|---|---|---|
 | 01 | [`01-sft`](01-sft) | **Supervised Fine-Tuning** — the foundation; instruction-tune a base model | ✅ ready to test |
 | 02 | [`02-reward-modeling`](02-reward-modeling) | **Reward Modeling** — Bradley-Terry + Process RMs | ✅ ready to test |
-| 03 | `03-ppo` | **PPO** — classic RLHF, explained + honest "superseded" verdict | ☐ planned |
-| 04 | `04-dpo` | **DPO & variants** (IPO/KTO/ORPO/SimPO) — the modern default | ☐ planned |
+| 03 | [`03-ppo`](03-ppo) | **PPO** — classic RLHF, explained + honest "superseded" verdict | ✅ ready to test |
+| 04 | [`04-dpo`](04-dpo) | **DPO & variants** (IPO/KTO/ORPO/SimPO) — the modern default | ✅ ready to test |
 | 05 | `05-grpo` | **GRPO / RLVR** — verifiable-reward RL for reasoning (DeepSeek-R1 era) | ☐ planned |
 | 06 | `06-online-infra` | **Online DPO, vLLM generation, reward hacking, eval harness** | ☐ planned |
 | 07 | `07-distillation` | **Knowledge distillation** (GKD / on-policy) — the R1 "cold start" lineage | ☐ planned |

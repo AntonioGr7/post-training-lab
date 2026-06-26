@@ -1,0 +1,63 @@
+# =============================================================================================
+# PPO demo: RLHF on TL;DR summarization (the canonical, reproducible PPO reference setup).
+# A pythia-1b SFT policy is optimized against a pythia-1b reward model on `trl-lib/tldr`.
+# Runs on a single A100/H100; multi-GPU (accelerate + DeepSpeed ZeRO) strongly recommended for PPO.
+#
+#   uv run python train.py --config configs/default.yaml
+#   uv run accelerate launch --config_file deepspeed_zero2.yaml train.py --config configs/default.yaml
+#
+# Parsed into LabArguments + PPOConfig + ModelConfig by TrlParser.
+# =============================================================================================
+
+# ---- ModelConfig ----------------------------------------------------------------------------
+model_name_or_path: EleutherAI/pythia-1b-deduped         # used for the tokenizer
+dtype: bfloat16
+attn_implementation: sdpa
+
+# ---- LabArguments (dataset) -----------------------------------------------------------------
+dataset_name: trl-lib/tldr
+dataset_train_split: train
+dataset_test_split: validation
+max_prompt_length: 512
+
+# ---- PPOConfig (training) -------------------------------------------------------------------
+# The two frozen + two trained models. To use YOUR stack, point these at folders 01 & 02:
+#   sft_model_path: ../01-sft/outputs/qwen3-4b-tulu3-sft
+#   reward_model_path: ../02-reward-modeling/outputs/qwen3-4b-ultrafeedback-rm
+# (expect to need LoRA + multi-GPU at that scale — see README).
+sft_model_path: cleanrl/EleutherAI_pythia-1b-deduped__sft__tldr
+reward_model_path: cleanrl/EleutherAI_pythia-1b-deduped__reward__tldr
+
+output_dir: outputs/ppo-tldr
+
+total_episodes: 30000          # the published benchmark used 1,000,000 across 8 GPUs; we shrink it
+                               # so the loop runs in a single-GPU session. Reward won't fully converge
+                               # — the goal is to watch `objective/rlhf_reward` climb.
+response_length: 53            # max new tokens generated per rollout (a TL;DR is short)
+local_rollout_forward_batch_size: 16
+
+# Core PPO knobs (see README §"Hyperparameters")
+num_ppo_epochs: 4              # reuse each rollout batch for 4 optimization passes
+num_mini_batches: 1
+kl_coef: 0.05                  # strength of the KL-to-reference penalty (anti reward-hacking)
+cliprange: 0.2                 # PPO surrogate clip — caps per-update policy change
+vf_coef: 0.1                   # value-loss weight
+lam: 0.95                      # GAE lambda
+gamma: 1.0                     # discount (1.0 is standard for these short-horizon LM rewards)
+whiten_rewards: false
+missing_eos_penalty: 1.0       # "EOS trick": penalize completions that never stop
+stop_token: eos
+
+# Optimization
+learning_rate: 3.0e-6          # PPO uses a much smaller LR than SFT/RM
+per_device_train_batch_size: 16
+gradient_accumulation_steps: 4
+bf16: true
+
+# Logging
+logging_steps: 10
+num_sample_generations: 10     # periodically log (query, response, score) tables — watch these!
+save_strategy: "no"
+report_to: wandb
+run_name: ppo-tldr-pythia1b
+seed: 42

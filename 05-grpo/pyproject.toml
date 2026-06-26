@@ -1,0 +1,29 @@
+[project]
+name = "post-training-lab-grpo"
+version = "0.1.0"
+description = "GRPO / RLVR — Group Relative Policy Optimization with verifiable rewards (the DeepSeek-R1 recipe). The flagship online-RL folder; + the DPPO frontier note on trust regions."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Practitioner stack, June 2026. Same pins as the rest of the lab.
+    "transformers>=5.0,<6",
+    "trl>=1.7,<2",
+    "datasets>=3.2",
+    "accelerate>=1.4",
+    "peft>=0.14",
+    "torch>=2.5",
+    # Experiment tracking — wandb is the course-wide default tracker.
+    "wandb>=0.18",
+]
+
+[project.optional-dependencies]
+# vLLM is THE accelerator for online RL: generation is GRPO's bottleneck. The headline config turns
+# it on (colocate mode, single GPU). Install with: uv sync --extra vllm
+vllm = ["vllm>=0.6"]
+# Fused FlashAttention-2 kernels — optional speedup. Install with: uv sync --extra flash
+flash = ["flash-attn>=2.7"]
+# 4-bit quantization for the LoRA/QLoRA path.
+quant = ["bitsandbytes>=0.45"]
+
+[tool.uv]
+no-build-isolation-package = ["flash-attn"]

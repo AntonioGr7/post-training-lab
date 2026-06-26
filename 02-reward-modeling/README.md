@@ -313,6 +313,9 @@ uv run python train.py --config configs/default.yaml
 Full fine-tune of Qwen3-4B as a Bradley-Terry RM on 30k UltraFeedback pairs, 1 epoch. Watch
 `accuracy`/`margin` in the wandb run. Outputs in `outputs/qwen3-4b-ultrafeedback-rm/`.
 
+> ⏱ **Expected runtime (rough):** ~**2–4 h** on a single A100-80GB (~1–2 h on H100), excluding
+> downloads. Scales ~linearly with `max_train_samples`. FLOP-based estimate, not measured.
+
 ### 3) Score responses with your RM
 ```bash
 uv run python score.py --model_path outputs/qwen3-4b-ultrafeedback-rm
@@ -328,6 +331,9 @@ uv run python score.py --model_path outputs/qwen3-4b-ultrafeedback-rm \
 uv run python train_prm.py --config configs/prm.yaml
 # quick smoke: uv run python train_prm.py --config configs/prm.yaml --max_train_samples 256 --max_steps 5
 ```
+
+> ⏱ **Expected runtime (rough):** ~**20–40 min** on a single A100-80GB (it's a small 0.6B model on
+> 20k examples). FLOP-based estimate, not measured.
 
 ### Multi-GPU — no code changes
 ```bash
