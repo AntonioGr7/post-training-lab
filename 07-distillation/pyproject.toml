@@ -1,0 +1,26 @@
+[project]
+name = "post-training-lab-distillation"
+version = "0.1.0"
+description = "Knowledge distillation — GKD (on-policy / generalized KD) compressing a large teacher into a small deployable student, contrasted with offline SFT-on-traces (the DeepSeek-R1 'cold start')."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Practitioner stack, June 2026. Same pins as the rest of the lab.
+    "transformers>=5.0,<6",
+    "trl>=1.7,<2",
+    "datasets>=3.2",
+    "accelerate>=1.4",
+    "peft>=0.14",
+    "torch>=2.5",
+    # Experiment tracking — wandb is the course-wide default tracker.
+    "wandb>=0.18",
+]
+
+[project.optional-dependencies]
+# Fused FlashAttention-2 kernels — optional speedup. Install with: uv sync --extra flash
+flash = ["flash-attn>=2.7"]
+# 4-bit quantization for the LoRA/QLoRA path on the student.
+quant = ["bitsandbytes>=0.45"]
+
+[tool.uv]
+no-build-isolation-package = ["flash-attn"]

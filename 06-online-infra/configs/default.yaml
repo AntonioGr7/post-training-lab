@@ -1,0 +1,65 @@
+# =============================================================================================
+# Headline Online DPO run: align Qwen3-4B on-policy against folder 02's reward model.
+# Target hardware: ONE A100 / H100 (80 GB). Holds policy + reference + reward model (3 models),
+# plus vLLM generation — the tightest memory profile in the course. Use LoRA if you OOM.
+#
+#   uv sync --extra vllm
+#   uv run accelerate launch train.py --config configs/default.yaml
+#
+# Parsed into LabArguments + OnlineDPOConfig + ModelConfig by TrlParser.
+# =============================================================================================
+
+# ---- ModelConfig ----------------------------------------------------------------------------
+# Properly, the policy is YOUR SFT model (folder 01). We use the released instruct model so the
+# folder stands alone — swap in `../01-sft/outputs/qwen3-4b-tulu3-sft`.
+model_name_or_path: Qwen/Qwen3-4B
+dtype: bfloat16
+attn_implementation: flash_attention_2        # No flash-attn? set `sdpa`. (`uv sync --extra flash`)
+
+# ---- LoRA path (recommended here — 3 models is tight; ref = adapter disabled) ---------------
+# use_peft: true
+# lora_r: 16
+# lora_alpha: 32
+# lora_target_modules: all-linear
+
+# ---- LabArguments (dataset) -----------------------------------------------------------------
+dataset_name: trl-lib/ultrafeedback-prompt     # PROMPT-ONLY (same prompts as 02/04, no pairs)
+dataset_train_split: train
+dataset_test_split: test
+max_train_samples: 10000
+max_eval_samples: 500
+
+# ---- OnlineDPOConfig (training) -------------------------------------------------------------
+output_dir: outputs/qwen3-4b-online-dpo
+
+# The scorer. Build folder 02 first, or point at any scalar RM (e.g. trl-lib/Qwen2-0.5B-Reward).
+# This is the course tie-in: 02's RM judges the policy's fresh, on-policy generations.
+reward_model_path: ../02-reward-modeling/outputs/qwen3-4b-ultrafeedback-rm
+
+beta: 0.1                                      # KL strength (same role as offline DPO's beta)
+loss_type: sigmoid                             # sigmoid (vanilla) or ipo — same switch as folder 04
+max_new_tokens: 256                            # generation length per completion (cost driver)
+temperature: 0.9                               # sampling temp — needs >0 so the TWO completions differ
+missing_eos_penalty: 1.0                       # the "EOS trick": penalize completions that never stop
+                                              # (anti length-gaming — see README §5)
+
+# vLLM: generation is the bottleneck of any online method.
+use_vllm: true
+vllm_mode: colocate
+vllm_gpu_memory_utilization: 0.25              # leave room for policy + ref + RM + training
+
+learning_rate: 5.0e-7                          # tiny, like offline DPO / PPO
+per_device_train_batch_size: 8
+gradient_accumulation_steps: 4
+num_train_epochs: 1
+warmup_ratio: 0.1
+max_grad_norm: 1.0
+bf16: true
+gradient_checkpointing: true
+
+logging_steps: 10
+save_strategy: epoch
+save_total_limit: 1
+report_to: wandb                               # course default. `wandb login` + export WANDB_PROJECT
+run_name: qwen3-4b-online-dpo
+seed: 42

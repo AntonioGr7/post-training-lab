@@ -1,0 +1,43 @@
+# =============================================================================================
+# Smoke test: prove the Online DPO loop spins (generate 2 → score → DPO step) in a few minutes.
+# Tiny policy + a released tiny reward model + no vLLM. Runs standalone (no folder 02 needed).
+#
+#   uv run python train.py --config configs/smoke.yaml
+# =============================================================================================
+
+# ---- ModelConfig ----------------------------------------------------------------------------
+model_name_or_path: Qwen/Qwen3-0.6B
+dtype: bfloat16
+attn_implementation: sdpa
+
+# ---- LabArguments (dataset) -----------------------------------------------------------------
+dataset_name: trl-lib/ultrafeedback-prompt
+dataset_train_split: train
+dataset_test_split: test
+max_train_samples: 64
+max_eval_samples: 32
+
+# ---- OnlineDPOConfig (training) -------------------------------------------------------------
+output_dir: outputs/smoke-online-dpo
+
+reward_model_path: trl-lib/Qwen2-0.5B-Reward   # released scalar RM — runs without building folder 02
+
+beta: 0.1
+loss_type: sigmoid
+max_new_tokens: 64
+temperature: 0.9
+missing_eos_penalty: 1.0
+
+use_vllm: false                                # plain generate() — no vLLM dependency for the smoke
+
+max_steps: 5
+learning_rate: 5.0e-7
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 1
+bf16: true
+gradient_checkpointing: false
+
+logging_steps: 1
+save_strategy: "no"
+report_to: none
+seed: 42

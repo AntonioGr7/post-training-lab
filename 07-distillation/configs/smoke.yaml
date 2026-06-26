@@ -1,0 +1,41 @@
+# =============================================================================================
+# Smoke test: prove the GKD loop spins (student generates → teacher scores tokens → JSD step) fast.
+# Tiny teacher + tiny student of the SAME family (shared vocab), a few steps, no flash-attn.
+#
+#   uv run python train.py --config configs/smoke.yaml
+# =============================================================================================
+
+# ---- ModelConfig (the STUDENT) --------------------------------------------------------------
+model_name_or_path: Qwen/Qwen3-0.6B
+dtype: bfloat16
+attn_implementation: sdpa
+
+# ---- LabArguments (dataset) -----------------------------------------------------------------
+dataset_name: allenai/tulu-3-sft-mixture
+dataset_train_split: train
+max_train_samples: 64
+
+# ---- GKDConfig (training) -------------------------------------------------------------------
+output_dir: outputs/smoke-gkd
+
+# Teacher slightly larger than the student, same family → same tokenizer. (1.7B → 0.6B.)
+teacher_model_name_or_path: Qwen/Qwen3-1.7B
+
+lmbda: 0.5
+beta: 0.5
+seq_kd: false
+temperature: 0.9
+max_new_tokens: 64
+
+max_steps: 5
+learning_rate: 1.0e-5
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 1
+bf16: true
+gradient_checkpointing: false
+max_length: 512
+
+logging_steps: 1
+save_strategy: "no"
+report_to: none
+seed: 42

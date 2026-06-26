@@ -1,0 +1,29 @@
+[project]
+name = "post-training-lab-online-infra"
+version = "0.1.0"
+description = "Online infrastructure — Online DPO (on-policy preferences), vLLM-backed sampling, reward-hacking mitigation, and a lightweight eval harness tying the course together."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Practitioner stack, June 2026. Same pins as the rest of the lab.
+    "transformers>=5.0,<6",
+    "trl>=1.7,<2",
+    "datasets>=3.2",
+    "accelerate>=1.4",
+    "peft>=0.14",
+    "torch>=2.5",
+    # Experiment tracking — wandb is the course-wide default tracker.
+    "wandb>=0.18",
+]
+
+[project.optional-dependencies]
+# vLLM accelerates the on-policy generation that online methods live or die by. The headline config
+# enables it (colocate). Install with: uv sync --extra vllm  (pins torch slightly behind — see README)
+vllm = ["vllm>=0.6"]
+# Fused FlashAttention-2 kernels — optional speedup. Install with: uv sync --extra flash
+flash = ["flash-attn>=2.7"]
+# 4-bit quantization for the LoRA/QLoRA path.
+quant = ["bitsandbytes>=0.45"]
+
+[tool.uv]
+no-build-isolation-package = ["flash-attn"]

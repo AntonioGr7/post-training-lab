@@ -1,0 +1,16 @@
+# Python / uv
+.venv/
+__pycache__/
+*.pyc
+
+# Training outputs
+outputs/
+checkpoints/
+*.log
+
+# Experiment trackers
+wandb/
+runs/
+
+# HF cache (if redirected locally)
+.cache/

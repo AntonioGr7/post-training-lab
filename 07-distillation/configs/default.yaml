@@ -1,0 +1,65 @@
+# =============================================================================================
+# Headline GKD run: distill Qwen3-4B (teacher) into Qwen3-0.6B (student) on a real chat dataset.
+# Target hardware: ONE A100 / H100 (80 GB). Holds teacher (4B, frozen) + student (0.6B, trained)
+# + on-policy generation — comfortably under 80 GB. The student is what you deploy.
+#
+#   uv sync
+#   uv run accelerate launch train.py --config configs/default.yaml
+#
+# Parsed into LabArguments + GKDConfig + ModelConfig by TrlParser.
+# =============================================================================================
+
+# ---- ModelConfig (the STUDENT — the model we train and ship) ---------------------------------
+model_name_or_path: Qwen/Qwen3-0.6B
+dtype: bfloat16
+attn_implementation: flash_attention_2        # No flash-attn? set `sdpa`. (`uv sync --extra flash`)
+
+# ---- LoRA path on the student (optional; full-FT of 0.6B is cheap, so full-FT is the default) -
+# use_peft: true
+# lora_r: 16
+# lora_alpha: 32
+# lora_target_modules: all-linear
+
+# ---- LabArguments (dataset) -----------------------------------------------------------------
+# Same instruction data as folder 01's SFT — so "SFT the student directly" vs "distill the teacher
+# into the student" is a clean, controlled comparison (Exercise 1). Messages format; the prompts
+# drive on-policy generation, the assistant turns are the off-policy targets used when lmbda < 1.
+dataset_name: allenai/tulu-3-sft-mixture
+dataset_train_split: train
+max_train_samples: 50000
+
+# ---- GKDConfig (training + the GKD dials) ---------------------------------------------------
+output_dir: outputs/qwen3-0.6b-gkd
+
+# The teacher. Properly this is YOUR best aligned/reasoning model (folder 01/05's output). We use the
+# released 4B so the folder stands alone. Teacher and student MUST share a tokenizer/vocab — both
+# Qwen3, same family. teacher_model_init_kwargs (dtype/attn) is set in train.py.
+teacher_model_name_or_path: Qwen/Qwen3-4B
+
+# The two dials that define GKD (see README §3):
+lmbda: 0.5                                     # on-policy fraction. 0=supervised KD, 1=fully on-policy.
+                                              # 0.5 mixes; the paper finds higher is better — try 1.0.
+beta: 0.5                                      # JSD interpolation. 0≈forward KL (mode-covering),
+                                              # 1≈reverse KL (mode-seeking — good for a small student).
+seq_kd: false                                  # true = also do sequence-level KD (SFT on teacher's
+                                              # own generations). Compose with lmbda=0 for pure SeqKD.
+temperature: 0.9                               # sampling temp for the student's on-policy generations
+max_new_tokens: 256                            # generation length per on-policy completion (cost driver)
+
+learning_rate: 1.0e-5                          # student LR — SFT-scale (this is KD/SFT, not RL)
+per_device_train_batch_size: 8
+gradient_accumulation_steps: 4
+num_train_epochs: 1
+warmup_ratio: 0.05
+lr_scheduler_type: cosine
+max_grad_norm: 1.0
+bf16: true
+gradient_checkpointing: true
+max_length: 1024                               # prompt+completion cap (SFTConfig field)
+
+logging_steps: 10
+save_strategy: epoch
+save_total_limit: 1
+report_to: wandb                               # course default. `wandb login` + export WANDB_PROJECT
+run_name: qwen3-0.6b-gkd
+seed: 42
