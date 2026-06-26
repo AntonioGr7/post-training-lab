@@ -32,6 +32,7 @@ uv run python train.py --config configs/default.yaml     # the real run
 | 05 | [`05-grpo`](05-grpo) | **GRPO / RLVR** — verifiable-reward RL for reasoning (DeepSeek-R1 era) | ✅ ready to test |
 | 06 | [`06-online-infra`](06-online-infra) | **Online DPO, vLLM generation, reward hacking, eval harness** | ✅ ready to test |
 | 07 | [`07-distillation`](07-distillation) | **Knowledge distillation** (GKD / on-policy) — the R1 "cold start" lineage | ✅ ready to test |
+| 08 | [`08-agentic-rl`](08-agentic-rl) | **Agentic RL** (multi-turn / long-horizon) — terminal-bench/SWE-bench era · *theory + frontier map* | 📖 lesson (no run) |
 
 The numbering is a suggested learning order; folders remain independent. See [`PLAN.md`](PLAN.md)
 for scope, conventions, and build status.
@@ -96,6 +97,14 @@ model, the RL loop itself) while keeping the *signal*. PPO had four models; GRPO
 verifier. That simplification trend is the story of modern post-training — and the reason the "honest
 verdict" in each folder matters as much as the how-to.
 
+**The current frontier — agentic RL.** Everything above is *single-turn* (one prompt → one response).
+Training a model to act as a **long-horizon agent** (terminal-bench / SWE-bench: plan → call tools →
+read output → recover → repeat for 100+ steps) is a different problem, and it's where the frontier labs
+now are. The recipe — **rejection-sampling agentic SFT cold-start → multi-turn RLVR in a sandbox** —
+composes the single-turn pieces (`05`'s GRPO with token masking, `07`'s cold-start) over a long
+horizon, and has largely moved *off* TRL onto verl/SkyRL/rLLM. [`08-agentic-rl`](08-agentic-rl) is the
+(theory) map of what Kimi K2, GLM-4.5, DeepSWE, Qwen3-Coder and others actually do.
+
 ## Taxonomy map: where each technique sits
 
 The course is a *learning progression*, but every technique is also one of TRL's trainers. This map
@@ -120,6 +129,13 @@ Flags follow TRL: ⚡️ = vLLM-accelerated · 🧪 = experimental in TRL (a pro
 | | `NashMDTrainer`🧪⚡️ `XPOTrainer`🧪⚡️ | `06-online-infra` | frontier online methods (map/mention) |
 | **Distillation** | `GKDTrainer`🧪 | `07-distillation` | on-policy / generalized KD |
 | | `MiniLLMTrainer`🧪 | `07-distillation` | reverse-KL variant (mention) |
+| **Agentic RL** (beyond TRL) | verl · SkyRL · rLLM · ART | `08-agentic-rl` | multi-turn / long-horizon; TRL is single-turn — frontier map only |
+
+> **Why `08` has no TRL trainer.** Multi-turn agentic RL (terminal-bench/SWE-bench) is the frontier
+> *past* TRL's single-turn design — it needs an environment + sandbox cluster + a distributed framework
+> (verl/SkyRL/rLLM). `08` is therefore a **theory + verified-frontier-map** lesson (with annotated
+> pseudo-code), not a runnable folder. It's where the course honestly ends: the single-turn methods you
+> built (`05`'s GRPO, `07`'s cold-start) are the *components* agentic RL composes over a long horizon.
 
 > **Reading the flags:** that PPO and *all* the DPO-variants are 🧪 in TRL is itself instructive —
 > it corroborates the course's verdicts (PPO is superseded; DPO is the stable default, its variants
